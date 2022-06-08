@@ -26,15 +26,11 @@ class MLMDataset(Dataset):
         data.time = pd.to_datetime(data.time)
         data.reset_index(inplace=True, drop=True)
 
-        self.users = list(data.user)
+        self.products = list(data.product)
         self.years = list(data.year)
         self.months = list(data.month)
         self.days = list(data.day)
-
-        if name == 'reddit':
-            self.times = list(data.month.apply(convert_times, name=name))
-        elif name == 'arxiv' or name == 'ciao' or name == 'yelp':
-            self.times = list(data.year.apply(convert_times, name=name))
+        self.times = list(data.time)
         self.n_times = len(set(self.times))
 
         vocab = defaultdict(Counter)
@@ -61,14 +57,14 @@ class MLMDataset(Dataset):
 
     def __getitem__(self, idx):
 
-        user = self.users[idx]
+        product = self.products[idx]
         year = self.years[idx]
         month = self.months[idx]
         day = self.days[idx]
         time = self.times[idx]
         review = self.reviews[idx]
 
-        return user, time, year, month, day, review
+        return product, time, year, month, day, review
 
 
 class SADataset(Dataset):
@@ -81,16 +77,14 @@ class SADataset(Dataset):
         data = pd.read_csv('{}/{}_{}.csv'.format(data_dir, name, split), parse_dates=['time'])
 
         data.dropna(inplace=True)
-        data.time = pd.to_datetime(data.time)
         data.reset_index(inplace=True, drop=True)
 
         self.labels = list(data.label)
-        self.users = list(data.user)
+        self.products = list(data['product'])
         self.years = list(data.year)
         self.months = list(data.month)
         self.days = list(data.day)
-
-        self.times = list(data.year.apply(convert_times, name=name))
+        self.times = list(data.time)
         self.n_times = len(set(self.times))
 
         vocab = defaultdict(Counter)
@@ -118,14 +112,14 @@ class SADataset(Dataset):
     def __getitem__(self, idx):
 
         label = self.labels[idx]
-        user = self.users[idx]
+        product = self.products[idx]
         year = self.years[idx]
         month = self.months[idx]
         day = self.days[idx]
         time = self.times[idx]
         review = self.reviews[idx]
 
-        return label, user, time, year, month, day, review
+        return label, product, time, year, month, day, review
 
 
 class MLMCollator:
@@ -141,7 +135,7 @@ class MLMCollator:
 
         batch_size = len(batch)
 
-        users = torch.tensor([self.user2id[u] for u, _, _, _, _, _ in batch]).long()
+        products = torch.tensor([self.user2id[u] for u, _, _, _, _, _ in batch]).long()
         times = torch.tensor([t for _, t, _, _, _, _ in batch]).long()
         years = torch.tensor([y for _, _, y, _, _, _ in batch]).long()
         months = torch.tensor([m for _, _, _, m, _, _ in batch]).long()
@@ -174,7 +168,7 @@ class MLMCollator:
         random_words = torch.randint(len(self.tok), labels.shape, dtype=torch.long)
         reviews_pad[indices_random] = random_words[indices_random]
 
-        return labels, users, times, years, months, days, reviews_pad, masks_pad, segs_pad
+        return labels, products, times, years, months, days, reviews_pad, masks_pad, segs_pad
 
 
 class SACollator:
@@ -189,7 +183,7 @@ class SACollator:
         batch_size = len(batch)
 
         labels = torch.tensor([l for l, _, _, _, _, _, _ in batch]).float()
-        users = torch.tensor([self.user2id[u] for _, u, _, _, _, _, _ in batch]).long()
+        products = torch.tensor([self.user2id[u] for _, u, _, _, _, _, _ in batch]).long()
         times = torch.tensor([t for _, _, t, _, _, _, _ in batch]).long()
         years = torch.tensor([y for _, _, _, y, _, _, _ in batch]).long()
         months = torch.tensor([m for _, _, _, _, m, _, _ in batch]).long()
@@ -205,7 +199,7 @@ class SACollator:
             reviews_pad[i, :len(r)] = torch.tensor(r)
             masks_pad[i, :len(r)] = 1
 
-        return labels, users, times, years, months, days, reviews_pad, masks_pad, segs_pad
+        return labels, products, times, years, months, days, reviews_pad, masks_pad, segs_pad
 
 
 def convert_times(time, name):
@@ -221,6 +215,9 @@ def convert_times(time, name):
 
     elif name == 'reddit':
         return time - 9
+    
+    elif name == 'amazon_fashion':
+        return time - 2002
 
 
 def truncate(reviews):
@@ -243,21 +240,21 @@ def load_external_data(name, social_dim, data_dir):
         if name == 'reddit' or name == 'arxiv':
             edge_set = set(e[:2] for e in edge_set if e[2] > 0.01)
 
-    with open('{}/{}_users.p'.format(data_dir, name), 'rb') as f:
-        users = pickle.load(f)
+    with open('{}/{}_products.p'.format(data_dir, name), 'rb') as f:
+        products = pickle.load(f)
 
     if name == 'arxiv' or name == 'reddit':
         graph = nx.Graph()
     else:
         graph = nx.DiGraph()
 
-    graph.add_nodes_from(users)
+    graph.add_nodes_from(products)
     graph.add_edges_from(edge_set)
 
-    assert graph.number_of_nodes() == len(users)
+    assert graph.number_of_nodes() == len(products)
     assert graph.number_of_edges() == len(edge_set)
 
-    user2id = {u: i for i, u in enumerate(users)}
+    user2id = {u: i for i, u in enumerate(products)}
 
     vectors = dict()
 
@@ -273,17 +270,17 @@ def load_external_data(name, social_dim, data_dir):
 
             if name == 'ciao':
                 vectors[int(l.strip().split()[0])] = np.array(l.strip().split()[1:], dtype=float)
-            elif name == 'arxiv' or name == 'reddit' or name == 'yelp':
+            else:
                 vectors[str(l.strip().split()[0])] = np.array(l.strip().split()[1:], dtype=float)
 
-    vector_matrix = np.zeros((len(users), social_dim))
+    vector_matrix = np.zeros((len(products), social_dim))
 
-    for i, n in enumerate(users):
+    for i, n in enumerate(products):
         vector_matrix[i, :] = vectors[n]
 
     x = torch.tensor(vector_matrix, dtype=torch.float)
 
-    a = nx.adjacency_matrix(graph, nodelist=users)
+    a = nx.adjacency_matrix(graph, nodelist=products)
     edge_index = torch.tensor(np.stack((a.tocoo().row, a.tocoo().col)).astype(np.int32), dtype=torch.long)
 
     return user2id, Data(edge_index=edge_index, x=x)

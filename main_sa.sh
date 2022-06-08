@@ -1,0 +1,13 @@
+python src/main_sa.py \
+--data_dir ./data \
+--results_dir ./ \
+--trained_dir ./ \
+--batch_size 15 \
+--lr 3e-6 \
+--n_epochs 2 \
+--lambda_a 1e-1 \
+--lambda_w 1e-1 \
+--device 0 \
+--data amazon_fashion \
+--social_dim 50 \
+--gnn GAT
