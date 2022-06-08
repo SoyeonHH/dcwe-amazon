@@ -3,3 +3,4 @@
 *.p
 *.csv
 *.txt
+__pycache__
