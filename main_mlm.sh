@@ -3,10 +3,10 @@ python src/main_mlm.py \
 --results_dir ./ \
 --trained_dir ./ \
 --data amazon_fashion \
---device 1 \
---batch_size 16 \
+--device 0 \
+--batch_size 1 \
 --lr 3e-6 \
---n_epochs 7 \
+--n_epochs 1 \
 --lambda_a 1e-1 \
 --lambda_w 1e-1 \
 --social_dim 50 \

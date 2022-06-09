@@ -23,10 +23,9 @@ class MLMDataset(Dataset):
         data = pd.read_csv('{}/{}_{}.csv'.format(data_dir, name, split), parse_dates=['time'])
 
         data.dropna(inplace=True)
-        data.time = pd.to_datetime(data.time)
         data.reset_index(inplace=True, drop=True)
 
-        self.products = list(data.product)
+        self.products = list(data['product'])
         self.years = list(data.year)
         self.months = list(data.month)
         self.days = list(data.day)
@@ -136,7 +135,7 @@ class MLMCollator:
         batch_size = len(batch)
 
         products = torch.tensor([self.user2id[u] for u, _, _, _, _, _ in batch]).long()
-        times = torch.tensor([t for _, t, _, _, _, _ in batch]).long()
+        times = torch.tensor(list(map(int,[t for _, t, _, _, _, _ in batch]))).long()
         years = torch.tensor([y for _, _, y, _, _, _ in batch]).long()
         months = torch.tensor([m for _, _, _, m, _, _ in batch]).long()
         days = torch.tensor([d for _, _, _, _, d, _ in batch]).long()

@@ -2,6 +2,7 @@ from itertools import product
 import pickle
 import json
 from collections import defaultdict
+from site import USER_SITE
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -28,6 +29,18 @@ def main():
     data['day'] = data['day'].astype(int)
     data['text'] = data['text'].astype(str)
     data['rating'] = data['rating'].astype(float)
+
+    product_times = defaultdict(list)
+    for product, year in zip(data['product'], data['year']):
+        product_times[product].append(year)
+
+    products = set()
+    for product in product_times:
+        t_2010_2018 = [y for y in product_times[product] if y >= 2010]
+        if len(t_2010_2018) >= 10:
+            products.add(product)
+
+    data = data[(data['product'].isin(products)) & (data['year'] >= 2010)]
 
     data = data[data['text'].apply(lambda x: len(x.strip().split())) >= 10]
     data['text'] = data['text'].apply(lambda x: x.lower())
