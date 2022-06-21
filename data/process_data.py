@@ -5,6 +5,7 @@ from collections import defaultdict
 from site import USER_SITE
 
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
 
 
@@ -52,6 +53,15 @@ def main():
 
     data = data[['product', 'time', 'year', 'month', 'day', 'text', 'rating', 'label']]
 
+    # average number of tokens per text
+    tl = []
+    for t in data['text']:
+        tl.append(len(t.split(' ')))
+    tl = np.asarray(tl)
+
+    print("The number of data points: ", len(data))
+    print("The average of number of tokens per text: ", np.mean(tl))
+
     train_dev, test = train_test_split(data, test_size=0.2, random_state=123, stratify=data[['rating']])
     train, dev = train_test_split(train_dev, test_size=0.125, random_state=123, stratify=train_dev[['rating']])
 
@@ -70,6 +80,9 @@ def main():
     c_related = data_product['related'].apply(lambda x: x.strip().split(', '))
 
     edge_set.update([(p, r) for p, rs in zip(c_product, c_related) for r in rs if p in products and r in products])
+
+    # print("The number of nodes: ", len(c_product))
+    # print("The number of edges: ", len(edge_set))
 
     with open('amazon_fashion_edges.p', 'wb') as f:
         pickle.dump(edge_set, f)

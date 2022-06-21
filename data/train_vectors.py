@@ -1,5 +1,6 @@
 import argparse
 import pickle
+import numpy as np
 
 import networkx as nx
 from node2vec import Node2Vec
@@ -19,6 +20,12 @@ def main():
     graph = nx.DiGraph()
     graph.add_nodes_from(users)
     graph.add_edges_from(edge_set)
+
+    print(graph.number_of_nodes())
+    print(graph.number_of_edges())
+    print(np.mean(list(nx.average_neighbor_degree(graph).values())))
+    # print(nx.average_shortest_path_length(graph))
+    print(nx.density(graph))
 
     assert graph.number_of_nodes() == len(users)
     assert graph.number_of_edges() == len(edge_set)
